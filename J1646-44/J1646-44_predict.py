@@ -69,20 +69,30 @@ print(f"Egresses {offset.to('hour'):+f}:")
 for egress in egresses:
     if is_observable(ac, gmrt, J1646, egress):
 # Needs to start very close to (within five minutes of) a whole number of hours in IST
-        minutes = egress.to_datetime(timezone=output_timezone).minute
+        t = egress.to_datetime(timezone=output_timezone)
+        minutes = t.minute
         if minutes > 55 or minutes < 5:
     # Also needs to be observable one hour later
             endtime = egress + 1*u.hour
             if is_observable(ac, gmrt, J1646, endtime):
-                 print("IST: {0}; LST: {1}".format(egress.to_datetime(timezone=output_timezone), egress.sidereal_time('apparent')))
+                 if minutes > 55:
+                     hr = t.hour + 1
+                 elif minutes < 5:
+                     hr = t.hour
+                 print("IST: {0}; LST: {1:2.3f}; Scheduling block: {2:4d}-{3:02d}-{4:02d} {5:02d}:00:00".format(t, egress.sidereal_time('apparent'), t.year, t.month, t.day, hr))
 
 print(f"Ingresses {offset.to('hour'):+f}:")
 for ingress in ingresses:
     if is_observable(ac, gmrt, J1646, ingress):
 # Needs to start very close to (within five minutes of) a whole number of hours in IST
-        minutes = ingress.to_datetime(timezone=output_timezone).minute
+        t = ingress.to_datetime(timezone=output_timezone)
+        minutes = t.minute
         if minutes > 55 or minutes < 5:
 # Also needs to be observable one hour later
             endtime = ingress + 1*u.hour
             if is_observable(ac, gmrt, J1646, endtime):
-                print("IST: {0}; LST: {1}".format(ingress.to_datetime(timezone=output_timezone), ingress.sidereal_time('apparent')))
+                 if minutes > 55:
+                     hr = t.hour + 1
+                 elif minutes < 5:
+                     hr = t.hour
+                 print("IST: {0}; LST: {1:2.3f}; Scheduling block:{2:4d}-{3:02d}-{4:02d} {5:02d}:00:00".format(t, ingress.sidereal_time('apparent'), t.year, t.month, t.day, hr))
