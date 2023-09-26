@@ -10,6 +10,9 @@ from astropy.time import Time, TimezoneInfo
 MJD_start = Time(60250, format='mjd')
 MJD_stop = Time(60260, format='mjd')
 
+# Set the reference epoch (MJD)
+T0 = Time(59391.3567, format='mjd')
+
 # Output timezone
 output_timezone = TimezoneInfo(utc_offset=5.5*u.hour)
 
@@ -17,26 +20,14 @@ output_timezone = TimezoneInfo(utc_offset=5.5*u.hour)
 # Set to None or 0.0 for no offset
 offset = -0.5 * u.hour
 
-# Measurements from previous phase dispersion minimisation applied to MWA detections
-Pb = 9.8 * u.hour
-duty_cycle = 0.53
-
-# The MeerKAT non-detection(s)
-obs_duration = 550 * u.second
-MeerKAT_start = Time('2023-08-20T14:27:36.1', format='isot', scale='utc')
-MeerKAT_stop = Time('2023-08-20T19:39:02.4', format='isot', scale='utc') + obs_duration
+# Pre-determined orbital properties
+Pb = 5.267104 * u.hour
+ingress_epoch = T0 + 0.0502*Pb
+egress_epoch = T0 + 0.4497*Pb
 
 #---------------------------------------#
 # Calculations (user should not change) #
 #---------------------------------------#
-
-# How long is the source off?
-off_time = Pb*(1 - duty_cycle)
-
-# Calculate the middle of the non-detection time span
-non_detection_ctr = MeerKAT_start + 0.5*(MeerKAT_stop - MeerKAT_start)
-egress_epoch = non_detection_ctr - 0.5*off_time
-ingress_epoch = non_detection_ctr + 0.5*off_time
 
 # Calculate the number of orbital periods since the assumed egress/ingress epochs that fall within the given MJD range
 egress_rotation_start = int(np.ceil((MJD_start - egress_epoch)/Pb))
