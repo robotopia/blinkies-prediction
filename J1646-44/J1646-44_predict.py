@@ -13,7 +13,6 @@ from astropy.time import Time
 from pytz import timezone
 import matplotlib.pyplot as plt
 
-
 gmrt_loc = EarthLocation.from_geodetic(lat=19.096517*u.deg, lon=74.049742*u.deg, height=650*u.m)
 gmrt = Observer(name='uGMRT', location=gmrt_loc, timezone='Asia/Kolkata')
 coords = SkyCoord("16 46 22.7", "-44 05 41", frame="fk5", unit=(u.hour, u.deg))
@@ -24,14 +23,14 @@ J1646 = FixedTarget(coords)
 #-------------------------------------------------#
 
 # Altitude constraints at the uGMRT
-ac = AltitudeConstraint(min=15*u.deg
-)
+ac = AltitudeConstraint(min=15*u.deg)
+
 # Change the range of desired MJD prediction here
-MJD_start = Time(60250, format='mjd')
-MJD_stop = Time(60260, format='mjd')
+MJD_start = Time(60240, format='mjd', location=gmrt_loc)
+MJD_stop = Time(60240+300, format='mjd', location=gmrt_loc)
 
 # Set the reference epoch (MJD)
-T0 = Time(59391.3567, format='mjd')
+T0 = Time(59391.3567, format='mjd', location=gmrt_loc)
 
 # Output timezone
 output_timezone = TimezoneInfo(utc_offset=5.5*u.hour)
@@ -72,7 +71,7 @@ for egress in egresses:
 # Also needs to be observable one hour later
         endtime = egress + 1*u.hour
         if is_observable(ac, gmrt, J1646, endtime):
-            print(egress.to_datetime(timezone=output_timezone))
+            print("IST: {0}; LST: {1}".format(egress.to_datetime(timezone=output_timezone), egress.sidereal_time('apparent')))
 
 print(f"Ingresses {offset.to('hour'):+f}:")
 for ingress in ingresses:
@@ -80,4 +79,4 @@ for ingress in ingresses:
 # Also needs to be observable one hour later
         endtime = ingress + 1*u.hour
         if is_observable(ac, gmrt, J1646, endtime):
-            print(ingress.to_datetime(timezone=output_timezone))
+            print("IST: {0}; LST: {1}".format(ingress.to_datetime(timezone=output_timezone), ingress.sidereal_time('apparent')))
