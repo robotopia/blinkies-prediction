@@ -1,6 +1,24 @@
 import numpy as np
 import astropy.units as u
 from astropy.time import Time, TimezoneInfo
+from astroplan import Observer
+from astropy.coordinates import EarthLocation
+from astroplan import FixedTarget
+from astroplan.plots import plot_altitude
+from astropy.coordinates import SkyCoord
+from astropy import units as u
+from astropy.time import Time
+from pytz import timezone
+import matplotlib.pyplot as plt
+
+
+print(EarthLocation.get_site_names())
+
+gmrt_loc = EarthLocation.from_geodetic(lat=19.096517*u.deg, lon=74.049742*u.deg, height=650*u.m)
+
+gmrt = Observer(name='uGMRT', location=gmrt_loc, timezone='Asia/Kolkata')
+coords = SkyCoord("16 46 22.7", "-44 05 41", frame="fk5", unit=(u.hour, u.deg))
+J1646 = FixedTarget(coords)
 
 #-------------------------------------------------#
 # Input parameters and settings (user may change) #
@@ -16,7 +34,8 @@ T0 = Time(59391.3567, format='mjd')
 # Output timezone
 output_timezone = TimezoneInfo(utc_offset=5.5*u.hour)
 
-# Offset reported times by some custom amount (e.g. half an hour before the ingress/egress times)?
+# Offset reported times by some custom amount
+# E.g. to start a one-hour dwell on-target, with the ingress or egress centred in the dwell, set to -0.5 hours
 # Set to None or 0.0 for no offset
 offset = -0.5 * u.hour
 
