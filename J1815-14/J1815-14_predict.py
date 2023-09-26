@@ -1,14 +1,34 @@
 import numpy as np
 import astropy.units as u
 from astropy.time import Time, TimezoneInfo
+from astroplan import Observer
+from astropy.coordinates import EarthLocation
+from astroplan import AltitudeConstraint
+from astroplan import is_observable, is_always_observable, months_observable
+from astroplan import FixedTarget
+from astroplan.plots import plot_altitude
+from astropy.coordinates import SkyCoord
+from astropy import units as u
+from astropy.time import Time
+from pytz import timezone
+import matplotlib.pyplot as plt
+
+gmrt_loc = EarthLocation.from_geodetic(lat=19.096517*u.deg, lon=74.049742*u.deg, height=650*u.m)
+gmrt = Observer(name='uGMRT', location=gmrt_loc, timezone='Asia/Kolkata')
+coords = SkyCoord("18 15 56.8", "-14 16 34", frame="fk5", unit=(u.hour, u.deg))
+J1815 = FixedTarget(coords)
 
 #-------------------------------------------------#
 # Input parameters and settings (user may change) #
 #-------------------------------------------------#
 
+# Altitude constraints at the uGMRT
+ac = AltitudeConstraint(min=30*u.deg)
+
 # Change the range of desired MJD prediction here
-MJD_start = Time(60250, format='mjd')
-MJD_stop = Time(60260, format='mjd')
+MJD_start = Time(60240, format='mjd', location=gmrt_loc)
+# We don't have much faith that the period is accurate so let's try to observe sooner rather than later
+MJD_stop = Time(60240+100, format='mjd', location=gmrt_loc)
 
 # Output timezone
 output_timezone = TimezoneInfo(utc_offset=5.5*u.hour)
@@ -23,8 +43,8 @@ duty_cycle = 0.53
 
 # The MeerKAT non-detection(s)
 obs_duration = 550 * u.second
-MeerKAT_start = Time('2023-08-20T14:27:36.1', format='isot', scale='utc')
-MeerKAT_stop = Time('2023-08-20T19:39:02.4', format='isot', scale='utc') + obs_duration
+MeerKAT_start = Time('2023-08-20T14:27:36.1', format='isot', scale='utc', location=gmrt_loc)
+MeerKAT_stop = Time('2023-08-20T19:39:02.4', format='isot', scale='utc', location=gmrt_loc) + obs_duration
 
 #---------------------------------------#
 # Calculations (user should not change) #
@@ -53,12 +73,30 @@ if offset is not None:
     egresses += offset
     ingresses += offset
 
+# For this source we only want to try to get some "on" measurements
+# Convert to specified timezone and print out
+#print(f"Egresses {offset.to('hour'):+f}:")
+#for egress in egresses:
+#    print(egress.to_datetime(timezone=output_timezone))
+
 # Convert to specified timezone and print out
 print(f"Egresses {offset.to('hour'):+f}:")
 for egress in egresses:
-    print(egress.to_datetime(timezone=output_timezone))
+    if is_observable(ac, gmrt, J1815, egress):
+# Needs to start very close to (within five minutes of) a whole number of hours in IST
+        t = egress.to_datetime(timezone=output_timezone)
+        minutes = t.minute
+        if minutes > 55 or minutes < 5:
+    # Also needs to be observable five hours later
+            endtime = egress + 5*u.hour
+            if is_observable(ac, gmrt, J1815, endtime):
+                 if minutes > 55:
+                     hr = t.hour + 1
+                 elif minutes < 5:
+                     hr = t.hour
+                 print("IST: {0}; LST: {1:2.3f}; Scheduling block: {2:4d}-{3:02d}-{4:02d} {5:02d}:00:00".format(t, egress.sidereal_time('apparent'), t.year, t.month, t.day, hr))
 
-print(f"Ingresses {offset.to('hour'):+f}:")
-for ingress in ingresses:
-    print(ingress.to_datetime(timezone=output_timezone))
+#print(f"Ingresses {offset.to('hour'):+f}:")
+#for ingress in ingresses:
+#    print(ingress.to_datetime(timezone=output_timezone))
 
