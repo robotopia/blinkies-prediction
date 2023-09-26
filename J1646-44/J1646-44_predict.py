@@ -23,7 +23,7 @@ J1646 = FixedTarget(coords)
 #-------------------------------------------------#
 
 # Altitude constraints at the uGMRT
-ac = AltitudeConstraint(min=15*u.deg)
+ac = AltitudeConstraint(min=25*u.deg)
 
 # Change the range of desired MJD prediction here
 MJD_start = Time(60240, format='mjd', location=gmrt_loc)
@@ -68,15 +68,21 @@ if offset is not None:
 print(f"Egresses {offset.to('hour'):+f}:")
 for egress in egresses:
     if is_observable(ac, gmrt, J1646, egress):
-# Also needs to be observable one hour later
-        endtime = egress + 1*u.hour
-        if is_observable(ac, gmrt, J1646, endtime):
-            print("IST: {0}; LST: {1}".format(egress.to_datetime(timezone=output_timezone), egress.sidereal_time('apparent')))
+# Needs to start very close to (within five minutes of) a whole number of hours in IST
+        minutes = egress.to_datetime(timezone=output_timezone).minute
+        if minutes > 55 or minutes < 5:
+    # Also needs to be observable one hour later
+            endtime = egress + 1*u.hour
+            if is_observable(ac, gmrt, J1646, endtime):
+                 print("IST: {0}; LST: {1}".format(egress.to_datetime(timezone=output_timezone), egress.sidereal_time('apparent')))
 
 print(f"Ingresses {offset.to('hour'):+f}:")
 for ingress in ingresses:
     if is_observable(ac, gmrt, J1646, ingress):
+# Needs to start very close to (within five minutes of) a whole number of hours in IST
+        minutes = ingress.to_datetime(timezone=output_timezone).minute
+        if minutes > 55 or minutes < 5:
 # Also needs to be observable one hour later
-        endtime = ingress + 1*u.hour
-        if is_observable(ac, gmrt, J1646, endtime):
-            print("IST: {0}; LST: {1}".format(ingress.to_datetime(timezone=output_timezone), ingress.sidereal_time('apparent')))
+            endtime = ingress + 1*u.hour
+            if is_observable(ac, gmrt, J1646, endtime):
+                print("IST: {0}; LST: {1}".format(ingress.to_datetime(timezone=output_timezone), ingress.sidereal_time('apparent')))
