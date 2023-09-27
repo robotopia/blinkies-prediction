@@ -55,8 +55,8 @@ off_time = Pb*(1 - duty_cycle)
 
 # Calculate the middle of the non-detection time span
 non_detection_ctr = MeerKAT_start + 0.5*(MeerKAT_stop - MeerKAT_start)
-egress_epoch = non_detection_ctr - 0.5*off_time
-ingress_epoch = non_detection_ctr + 0.5*off_time
+ingress_epoch = non_detection_ctr - 0.5*off_time # "ingress" means "going into eclipse"
+egress_epoch = non_detection_ctr + 0.5*off_time # "egress" means "coming out of eclipse"
 
 # Calculate the number of orbital periods since the assumed egress/ingress epochs that fall within the given MJD range
 egress_rotation_start = int(np.ceil((MJD_start - egress_epoch)/Pb))
