@@ -86,14 +86,16 @@ MJD_stop = Time("2024-11-22T00:00:00", format='isot', scale="utc", location=mkt.
 # For each day, calculate whether all of the sources are observable or if there is a showstopper:
 ok = []
 for mjd in np.arange(MJD_start.mjd, MJD_stop.mjd):
+    keep = True
     for obj in T0s:
         if not is_observable(constraints[obj], mkt, coords[obj], time_range=[Time(mjd, format='mjd', scale='utc'), Time(mjd+1, format='mjd', scale='utc')]):
             print(f"Can't observe {obj} on {mjd}")
-    ok.append(mjd) 
-
-
+            keep = False
+    if keep:
+        ok.append(mjd) 
 
 # Remove any day where any source is completely in eclipse the whole observation
+print(ok)
 
 
 
