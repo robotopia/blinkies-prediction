@@ -68,6 +68,15 @@ constraints = {}
 for obj in T0s:
     constraints[obj] = [PhaseConstraint(pe[obj], min=0.5 - (duty_cycles[obj]/2), max=0.5 + (duty_cycles[obj]/2)), ac]
 
+# Number of (15-min) observations taken so far (zero for all objects)
+observed = {"J1646" : 0,
+       "J1723" : 0,
+       "J1728" : 0,
+       "J1734" : 0,
+       "J1740" : 0,
+       "J1752" : 0,
+       "J1815" : 0}
+
 #-------------------------------------------------#
 # Input parameters and settings (user may change) #
 #-------------------------------------------------#
@@ -77,7 +86,7 @@ for obj in T0s:
 MJD_start = Time("2024-11-15T00:00:00", format='isot', scale="utc", location=mkt.location)
 #MJD_stop = Time("2025-11-15T00:00:00", format='isot', scale="utc", location=mkt.location)
 # For debugging
-MJD_stop = Time("2024-11-22T00:00:00", format='isot', scale="utc", location=mkt.location)
+MJD_stop = Time("2024-11-16T00:00:00", format='isot', scale="utc", location=mkt.location)
 
 #---------------------------------------#
 # Calculations (user should not change) #
@@ -94,13 +103,39 @@ for mjd in np.arange(MJD_start.mjd, MJD_stop.mjd):
     if keep:
         ok.append(mjd) 
 
-# Remove any day where any source is completely in eclipse the whole observation
-print(ok)
+# Find out when the start and stop times are for a given day
+
+for mjd in ok:
+    start = False
+    stop = False
+    for hour in range(0, 24):
+        observability = [is_observable(constraints[obj], mkt, coords[obj], time_range=[Time(mjd+(hour/24), format='mjd', scale='utc'), Time(mjd+((hour+1)/24.), format='mjd', scale='utc')])[0] for obj in T0s]
+        print(hour, observability, np.any(observability))
+        if not start and np.any(observability):
+             start = hour
+        if start and not stop and not np.any(observability):
+             stop = hour
+    print(f"For {mjd}, observability starts at {start} and ends at {stop}")
+    
+# Create a detailed schedule by observing each source for 15 minutes and moving on to the next source that is available
+    schedule = []
+    for hour in np.arange(start, stop, 0.25):
+         for obj in T0s:
+              if is_observable(constraints[obj], mkt, coords[obj], time_range=[Time(mjd+(hour/24), format='mjd', scale='utc'), Time(mjd+((hour+0.25)/24.), format='mjd', scale='utc')]) and observed[obj] <= 4:
+                   schedule.append(obj)
+                   observed[obj] += 1
+                   
+
+print(schedule)
+                    
+        
+
+
+# If that doesn't work, re-sort the sources and try again..?
 
 
 
-
-
+# Of the days which were possible, check that the observing time will be used efficiently -- that at any given point there is always a source to measure
 # Output timezone = UTC
 #output_timezone = TimezoneInfo(utc_offset=0*u.hour)
 #
