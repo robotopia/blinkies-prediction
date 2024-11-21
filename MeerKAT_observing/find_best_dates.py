@@ -97,10 +97,10 @@ order = {k: v for k, v in sorted(time_window.items(), key=lambda item: item[1])}
 
 
 # Change the range of desired MJD prediction here
-MJD_start = Time("2024-11-30T00:00:00", format='isot', scale="utc", location=mkt.location)
+MJD_start = Time("2024-12-31T00:00:00", format='isot', scale="utc", location=mkt.location)
 #MJD_stop = Time("2025-11-15T00:00:00", format='isot', scale="utc", location=mkt.location)
 # For debugging -- and in the hopes they can schedule quickly
-MJD_stop = Time("2024-12-31T00:00:00", format='isot', scale="utc", location=mkt.location)
+MJD_stop = Time("2025-01-31T00:00:00", format='isot', scale="utc", location=mkt.location)
 
 #---------------------------------------#
 # Calculations (user should not change) #
