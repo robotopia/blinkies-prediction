@@ -64,6 +64,7 @@ duty_cycles = {"J1646" : 0.5,
        "J1752" : 0.4,
        "J1815" : 0.5}
 
+
 # Astroplan Periodic Event objects
 pe = {}
 for obj in T0s:
@@ -78,10 +79,17 @@ ac = AltitudeConstraint(min=30*u.deg)
 # So to make sure the WHOLE observation fits within the orbital phase constraint, you need to shrink the window by the blocksize
 # Which to turn into a phase constraint, is blocksize/Pb
 
+time_window = {}
 constraints = {}
+print("Source  Min Orb Phase  Max Orb Phase")
 for obj in T0s:
-    print(obj, 0.5 - (duty_cycles[obj]/2) + blocksize*u.hour/Pbs[obj], 0.5 + (duty_cycles[obj]/2) - blocksize*u.hour/Pbs[obj]) 
+    time_window[obj] = Pbs[obj]*duty_cycles[obj] - blocksize*u.hour
     constraints[obj] = [PhaseConstraint(pe[obj], min=0.5 - (duty_cycles[obj]/2) + blocksize*u.hour/Pbs[obj], max=0.5 + (duty_cycles[obj]/2) - blocksize*u.hour/Pbs[obj]), ac]
+    print(obj, .5 - (duty_cycles[obj]/2) + blocksize*u.hour/Pbs[obj], 0.5 + (duty_cycles[obj]/2) - blocksize*u.hour/Pbs[obj])
+
+# ordering: by the time window of 'on'-ness
+order = {k: v for k, v in sorted(time_window.items(), key=lambda item: item[1])}
+
 
 #-------------------------------------------------#
 # Input parameters and settings (user may change) #
@@ -102,7 +110,7 @@ MJD_stop = Time("2024-12-31T00:00:00", format='isot', scale="utc", location=mkt.
 ok = []
 for mjd in np.arange(MJD_start.mjd, MJD_stop.mjd):
     keep = True
-    for obj in T0s:
+    for obj in order:
         if not is_observable(constraints[obj], mkt, coords[obj], time_range=[Time(mjd, format='mjd', scale='utc'), Time(mjd+1, format='mjd', scale='utc')]):
             print(f"Can't observe {obj} on {mjd}")
             keep = False
@@ -118,7 +126,7 @@ for mjd in ok:
     start = False
     stop = False
     for hour in range(0, 24):
-        observability = [is_observable(constraints[obj], mkt, coords[obj], time_range=[Time(mjd+(hour/24), format='mjd', scale='utc'), Time(mjd+((hour+1)/24.), format='mjd', scale='utc')])[0] for obj in T0s]
+        observability = [is_observable(constraints[obj], mkt, coords[obj], time_range=[Time(mjd+(hour/24), format='mjd', scale='utc'), Time(mjd+((hour+1)/24.), format='mjd', scale='utc')])[0] for obj in order]
         if not start and np.any(observability):
              start = hour
         if start and not stop and not np.any(observability):
@@ -139,10 +147,11 @@ for mjd in ok:
                "J1752" : 0,
                "J1815" : 0}
 
+        skipsource = None
         for hour in np.arange(start, stop, blocksize):
              blockAvailable = True
-             for obj in T0s:
-                  if is_observable(constraints[obj], mkt, coords[obj], time_range=[Time(mjd+(hour/24), format='mjd', scale='utc'), Time(mjd+((hour+blocksize)/24.), format='mjd', scale='utc')]) and observed[obj] < nobs and blockAvailable:
+             for obj in order:
+                  if is_observable(constraints[obj], mkt, coords[obj], time_range=[Time(mjd+(hour/24), format='mjd', scale='utc'), Time(mjd+((hour+blocksize)/24.), format='mjd', scale='utc')]) and observed[obj] < nobs and blockAvailable and obj != skipsource:
                   #if is_observable(constraints[obj], mkt, coords[obj], time_range=[Time(mjd+(hour/24), format='mjd', scale='utc'), Time(mjd+((hour+blocksize)/24.), format='mjd', scale='utc')]) and observed[obj] < nobs and observed[obj] <= minobs and blockAvailable:
 #                       print(obj, Time(mjd+(hour/24), format='mjd', scale='utc').isot, pe[obj].phase(Time(mjd+(hour/24), format='mjd', scale='utc')), pe[obj].phase(Time(mjd+((hour+blocksize)/24.), format='mjd', scale='utc')))
                        scheduled_times.append(Time(mjd+(hour/24), format='mjd', scale='utc'))
@@ -150,12 +159,17 @@ for mjd in ok:
                        observed[obj] += 1
                        #minobs = min(observed.values())
                        blockAvailable = False
+                       skipsource = obj
 
         if len(scheduled_times) == nobs*len(T0s):
             print(f"{t.isot} is an ideal day, with a schedule of {len(scheduled_times)} {blocksize*60}-minute observing blocks that starts at {start}h, ends at {stop}h, and iterates through the sources in the following order:")
             print("Time/UTC source orb_phase")
+            phases = []
             for t,source in zip(scheduled_times, scheduled_objects):
                 print(t.isot, source, pe[source].phase(t))
+                phases.append(pe[source].phase(t))
+            with open("schedule_options.txt", "a") as f:
+                f.write(f"{scheduled_times[0].isot} {np.nanmean(phases)} {np.nanstd(phases)}\n")
 #        elif len(schedule) > nobs*len(T0s) - 4 and allowTolerable:
 #            print(f"{t.isot} is an tolerable day, with a schedule of {len(schedule)} {blocksize*60}-minute observing blocks that starts at {start}h, ends at {stop}h, and iterates through the sources in the following order:")
 #            print(schedule)
