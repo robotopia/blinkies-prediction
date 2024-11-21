@@ -28,7 +28,7 @@ coords = {"J1646": FixedTarget(SkyCoord("16 46 22.7", "-44 05 41", frame="fk5", 
 
 # T0 = middle of eclipse, in MJD
 # I have scaled J1646's T0 to 0.26 of orbital phase based on Fig 3
-T0s = {"J1646" : Time(59391.3567+0.26*(5.26703./24.), format='mjd', scale='utc', location=mkt.location),
+T0s = {"J1646" : Time(59391.3567+0.26*(5.26703/24.), format='mjd', scale='utc', location=mkt.location),
        "J1723" : Time(59789.566010035276, format='mjd', scale='utc', location=mkt.location),
        "J1728" : Time(60055.87090177478, format='mjd', scale='utc', location=mkt.location),
        "J1734" : Time(59796.055897211045, format='mjd', scale='utc', location=mkt.location),
