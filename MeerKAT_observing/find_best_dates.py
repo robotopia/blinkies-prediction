@@ -118,6 +118,7 @@ for mjd in ok:
     print(f"For {mjd}, observability starts at {start} and ends at {stop}")
     
 # Create a detailed schedule by observing each source for 15 minutes and moving on to the next source that is available
+# TODO: change this to the source that has the most change in orbital phase?
     schedule = []
     for hour in np.arange(start, stop, 0.25):
          for obj in T0s:
