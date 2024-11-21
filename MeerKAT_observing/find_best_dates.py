@@ -18,6 +18,15 @@ import matplotlib.pyplot as plt
 
 mkt = Observer.at_site("salt")
 
+# We received 1 hour of observing time per source
+# MeerKAT documentation says up to 30-minute integrations are possible
+# Pulsar-searching rule-of-thumb is to not search over more than 0.1*Pb, i.e. a max of 30 minutes for our P=5-hour sources
+# But splitting the blocks more might gain us more chances, so good options for this value are 0.25 (4x15-min observations per source) and 0.5 (2x30-min observations per source)
+blocksize = 0.5 # hours
+nobs = int(1/blocksize)
+# Also print the 'ok' days not just the ideal days (currently disabled)
+#allowTolerable = False
+
 coords = {"J1646": FixedTarget(SkyCoord("16 46 22.7", "-44 05 41", frame="fk5", unit=(u.hour, u.deg)), name="J1646"),
           "J1723" : FixedTarget(SkyCoord("17 23 38.5", "-33 42 00", frame="fk5", unit=(u.hour, u.deg)), name="J1723"),
           "J1728" : FixedTarget(SkyCoord("17 28 12.12", "-46 08 01.49", frame="fk5", unit=(u.hour, u.deg)), name="J1728"),
@@ -25,16 +34,6 @@ coords = {"J1646": FixedTarget(SkyCoord("16 46 22.7", "-44 05 41", frame="fk5", 
           "J1740" : FixedTarget(SkyCoord("17 40 16.16", "-26 50 28.77", frame="fk5", unit=(u.hour, u.deg)), name="J1740"),
           "J1752" : FixedTarget(SkyCoord("17 52 26.2", "-30 33 43", frame="fk5", unit=(u.hour, u.deg)), name="J1752"),
           "J1815" : FixedTarget(SkyCoord("18 15 56.8", "-14 16 34", frame="fk5", unit=(u.hour, u.deg)), name="J1815")}
-
-# T0 = middle of eclipse, in MJD
-# I have scaled J1646's T0 to 0.26 of orbital phase based on Fig 3
-T0s = {"J1646" : Time(59391.3567+0.26*(5.26703/24.), format='mjd', scale='utc', location=mkt.location),
-       "J1723" : Time(59789.566010035276, format='mjd', scale='utc', location=mkt.location),
-       "J1728" : Time(60055.87090177478, format='mjd', scale='utc', location=mkt.location),
-       "J1734" : Time(59796.055897211045, format='mjd', scale='utc', location=mkt.location),
-       "J1740" : Time(60056.868761778795, format='mjd', scale='utc', location=mkt.location),
-       "J1752" : Time(59807.08632836161, format='mjd', scale='utc', location=mkt.location),
-       "J1815" : Time(59740.04800876778, format='mjd', scale='utc', location=mkt.location)}
 
 # Orbital periods
 Pbs = {"J1646" : 5.26703*u.hour,
@@ -45,9 +44,20 @@ Pbs = {"J1646" : 5.26703*u.hour,
        "J1752" : 17.85847*u.hour,
        "J1815" : 9.81969*u.hour}
 
+# T0 = middle of eclipse, in MJD
+# I have scaled J1646's T0 to add 0.26 of orbital phase based on Fig 3
+# I have pulled back J1740's T0 to 0.9 of orbital phase since it has a very slow egress
+T0s = {"J1646" : Time(59391.3567+0.26*(Pbs["J1646"].to(u.day).value), format='mjd', scale='utc', location=mkt.location),
+       "J1723" : Time(59789.566010035276, format='mjd', scale='utc', location=mkt.location),
+       "J1728" : Time(60055.87090177478, format='mjd', scale='utc', location=mkt.location),
+       "J1734" : Time(59796.055897211045, format='mjd', scale='utc', location=mkt.location),
+       "J1740" : Time(60055.87090177478-0.1*(Pbs["J1740"].to(u.day).value), format='mjd', scale='utc', location=mkt.location),
+       "J1752" : Time(59807.08632836161, format='mjd', scale='utc', location=mkt.location),
+       "J1815" : Time(59740.04800876778, format='mjd', scale='utc', location=mkt.location)}
+
 # duty cycle of ON phase
 duty_cycles = {"J1646" : 0.5,
-       "J1723" : 0.8,
+       "J1723" : 0.7,
        "J1728" : 0.6,
        "J1734" : 0.7,
        "J1740" : 0.2,
@@ -59,13 +69,19 @@ pe = {}
 for obj in T0s:
     pe[obj] = PeriodicEvent(epoch=T0s[obj], period=Pbs[obj])
 
-# Altitude constraints at MeerKAT
-ac = AltitudeConstraint(min=15*u.deg)
+# Altitude constraints at MeerKAT -- 15 deg is in the OPT, but I'm getting conflicting results from astroplan, so make it higher
+ac = AltitudeConstraint(min=30*u.deg)
 
 # Observing constraints (right part of orbital phase, and above the horizon)
+# Note that astroplan's default is quite loose constraints -- if your observation has ANY 'on' time, then it counts as OK
+# E.g. you could start observing JUST before egress and then most of the observation would be useless
+# So to make sure the WHOLE observation fits within the orbital phase constraint, you need to shrink the window by the blocksize
+# Which to turn into a phase constraint, is blocksize/Pb
+
 constraints = {}
 for obj in T0s:
-    constraints[obj] = [PhaseConstraint(pe[obj], min=0.5 - (duty_cycles[obj]/2), max=0.5 + (duty_cycles[obj]/2)), ac]
+    print(obj, 0.5 - (duty_cycles[obj]/2) + blocksize*u.hour/Pbs[obj], 0.5 + (duty_cycles[obj]/2) - blocksize*u.hour/Pbs[obj]) 
+    constraints[obj] = [PhaseConstraint(pe[obj], min=0.5 - (duty_cycles[obj]/2) + blocksize*u.hour/Pbs[obj], max=0.5 + (duty_cycles[obj]/2) - blocksize*u.hour/Pbs[obj]), ac]
 
 #-------------------------------------------------#
 # Input parameters and settings (user may change) #
@@ -74,10 +90,9 @@ for obj in T0s:
 
 # Change the range of desired MJD prediction here
 MJD_start = Time("2024-11-30T00:00:00", format='isot', scale="utc", location=mkt.location)
-MJD_stop = Time("2025-11-15T00:00:00", format='isot', scale="utc", location=mkt.location)
-# For debugging
-#MJD_stop = Time("2024-12-15T00:00:00", format='isot', scale="utc", location=mkt.location)
-
+#MJD_stop = Time("2025-11-15T00:00:00", format='isot', scale="utc", location=mkt.location)
+# For debugging -- and in the hopes they can schedule quickly
+MJD_stop = Time("2024-12-31T00:00:00", format='isot', scale="utc", location=mkt.location)
 
 #---------------------------------------#
 # Calculations (user should not change) #
@@ -111,11 +126,11 @@ for mjd in ok:
     print(f"For {t.isot}, observability starts at {start} and ends at {stop}")
     if stop - start > 8:
     
-# Create a detailed schedule by observing each source for 15 minutes and moving on to the next source with the fewest observations so far
-        schedule = []
-        maxobs = 1
-        minobs = 0
-# Number of (15-min) observations taken so far (zero for all objects)
+# Create a detailed schedule by observing each source for blocksize minutes and moving on to the next source with the fewest observations so far
+        scheduled_times = []
+        scheduled_objects = []
+        #minobs = 0
+# Number of (blocksize min) observations taken so far (zero for all objects)
         observed = {"J1646" : 0,
                "J1723" : 0,
                "J1728" : 0,
@@ -124,18 +139,28 @@ for mjd in ok:
                "J1752" : 0,
                "J1815" : 0}
 
-        for hour in np.arange(start, stop, 0.25):
+        for hour in np.arange(start, stop, blocksize):
+             blockAvailable = True
              for obj in T0s:
-                  if is_observable(constraints[obj], mkt, coords[obj], time_range=[Time(mjd+(hour/24), format='mjd', scale='utc'), Time(mjd+((hour+0.25)/24.), format='mjd', scale='utc')]) and observed[obj] <= 4 and observed[obj] <= minobs:
-                       schedule.append(obj)
+                  if is_observable(constraints[obj], mkt, coords[obj], time_range=[Time(mjd+(hour/24), format='mjd', scale='utc'), Time(mjd+((hour+blocksize)/24.), format='mjd', scale='utc')]) and observed[obj] < nobs and blockAvailable:
+                  #if is_observable(constraints[obj], mkt, coords[obj], time_range=[Time(mjd+(hour/24), format='mjd', scale='utc'), Time(mjd+((hour+blocksize)/24.), format='mjd', scale='utc')]) and observed[obj] < nobs and observed[obj] <= minobs and blockAvailable:
+#                       print(obj, Time(mjd+(hour/24), format='mjd', scale='utc').isot, pe[obj].phase(Time(mjd+(hour/24), format='mjd', scale='utc')), pe[obj].phase(Time(mjd+((hour+blocksize)/24.), format='mjd', scale='utc')))
+                       scheduled_times.append(Time(mjd+(hour/24), format='mjd', scale='utc'))
+                       scheduled_objects.append(obj)
                        observed[obj] += 1
-                       minobs = min(observed.values())
+                       #minobs = min(observed.values())
+                       blockAvailable = False
 
-        if len(schedule) > 25:
-            print(f"{t.isot} is an ideal day, with a schedule of {len(schedule)} observing blocks that starts at {start}, ends at {stop}, and iterates through the sources in the following order:")
-            print(schedule)
+        if len(scheduled_times) == nobs*len(T0s):
+            print(f"{t.isot} is an ideal day, with a schedule of {len(scheduled_times)} {blocksize*60}-minute observing blocks that starts at {start}h, ends at {stop}h, and iterates through the sources in the following order:")
+            print("Time/UTC source orb_phase")
+            for t,source in zip(scheduled_times, scheduled_objects):
+                print(t.isot, source, pe[source].phase(t))
+#        elif len(schedule) > nobs*len(T0s) - 4 and allowTolerable:
+#            print(f"{t.isot} is an tolerable day, with a schedule of {len(schedule)} {blocksize*60}-minute observing blocks that starts at {start}h, ends at {stop}h, and iterates through the sources in the following order:")
+#            print(schedule)
         else:
-            print(f"Couldn't spread the sources out cleanly across {t.isot}; schedule was only {len(schedule)*0.25} hours long")
+            print(f"Couldn't spread the sources out cleanly across {t.isot}; schedule was only {len(scheduled_times)*blocksize} hours long")
     else:
         print(f"Only {stop - start} hours of useful time available on {t.isot}.")
 
