@@ -92,12 +92,14 @@ for mjd in np.arange(MJD_start.mjd, MJD_stop.mjd):
             print(f"Can't observe {obj} on {mjd}")
             keep = False
     if keep:
+        print(f"All sources available on {mjd}")
         ok.append(mjd) 
 
 # Find out when the start and stop times are for a given day
 
 obslength = []
 for mjd in ok:
+    t = Time(mjd, format='mjd', scale='utc')
     start = False
     stop = False
     for hour in range(0, 24):
@@ -106,7 +108,7 @@ for mjd in ok:
              start = hour
         if start and not stop and not np.any(observability):
              stop = hour
-    print(f"For {mjd}, observability starts at {start} and ends at {stop}")
+    print(f"For {t.isot}, observability starts at {start} and ends at {stop}")
     if stop - start > 8:
     
 # Create a detailed schedule by observing each source for 15 minutes and moving on to the next source with the fewest observations so far
@@ -130,5 +132,10 @@ for mjd in ok:
                        minobs = min(observed.values())
 
         if len(schedule) > 25:
-            print(f"{mjd} is an ideal day, with a schedule that starts at {start}, ends at {stop}, and iterates through the sources in the following order:")
+            print(f"{t.isot} is an ideal day, with a schedule of {len(schedule)} observing blocks that starts at {start}, ends at {stop}, and iterates through the sources in the following order:")
             print(schedule)
+        else:
+            print(f"Couldn't spread the sources out cleanly across {t.isot}; schedule was only {len(schedule)*0.25} hours long")
+    else:
+        print(f"Only {stop - start} hours of useful time available on {t.isot}.")
+
