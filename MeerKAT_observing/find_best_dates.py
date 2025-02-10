@@ -75,7 +75,7 @@ ac = AltitudeConstraint(min=30*u.deg)
 
 # Observing constraints (right part of orbital phase, and above the horizon)
 # Note that astroplan's default is quite loose constraints -- if your observation has ANY 'on' time, then it counts as OK
-# E.g. you could start observing JUST before egress and then most of the observation would be useless
+# E.g. you could start observing JUST before ingress and then most of the observation would be useless
 # So to make sure the WHOLE observation fits within the orbital phase constraint, you need to shrink the window by the blocksize
 # Which to turn into a phase constraint, is blocksize/Pb
 
@@ -156,9 +156,10 @@ for mjd in ok:
 
         # Some ideas on fixing this:
         # Report the day unusable, and simply find a better day
-        # Try reordering the ordered list
+        # Try reordering the ordered list and then try again
         # Try relaxing the constraint that we need to separate the sources
-        # Try starting progressively earlier (change start) until no sources are skipped
+        # Try starting progressively later (change the 'start' variable) until no sources are skipped
+        # Any solution would require turning this section into a good function that can be called repeatedly
 
         for hour in np.arange(start, stop, blocksize):
              blockAvailable = True
