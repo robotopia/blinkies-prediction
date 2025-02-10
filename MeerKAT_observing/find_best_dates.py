@@ -97,10 +97,10 @@ order = {k: v for k, v in sorted(time_window.items(), key=lambda item: item[1])}
 
 
 # Change the range of desired MJD prediction here
-MJD_start = Time("2024-12-31T00:00:00", format='isot', scale="utc", location=mkt.location)
+MJD_start = Time("2024-12-15T00:00:00", format='isot', scale="utc", location=mkt.location)
 #MJD_stop = Time("2025-11-15T00:00:00", format='isot', scale="utc", location=mkt.location)
 # For debugging -- and in the hopes they can schedule quickly
-MJD_stop = Time("2025-01-31T00:00:00", format='isot', scale="utc", location=mkt.location)
+MJD_stop = Time("2024-12-16T00:00:00", format='isot', scale="utc", location=mkt.location)
 
 #---------------------------------------#
 # Calculations (user should not change) #
@@ -148,18 +148,33 @@ for mjd in ok:
                "J1815" : 0}
 
         skipsource = None
+
+        # Currently there is a BUG In the following code
+        # If a block is not used, it will be seamlessly skipped
+        # This would be fine if not for the fact that we're using a real telescope
+        # We need every block to be used! 
+
+        # Some ideas on fixing this:
+        # Report the day unusable, and simply find a better day
+        # Try reordering the ordered list
+        # Try relaxing the constraint that we need to separate the sources
+        # Try starting progressively earlier (change start) until no sources are skipped
+
         for hour in np.arange(start, stop, blocksize):
              blockAvailable = True
+             n = 0
              for obj in order:
                   if is_observable(constraints[obj], mkt, coords[obj], time_range=[Time(mjd+(hour/24), format='mjd', scale='utc'), Time(mjd+((hour+blocksize)/24.), format='mjd', scale='utc')]) and observed[obj] < nobs and blockAvailable and obj != skipsource:
-                  #if is_observable(constraints[obj], mkt, coords[obj], time_range=[Time(mjd+(hour/24), format='mjd', scale='utc'), Time(mjd+((hour+blocksize)/24.), format='mjd', scale='utc')]) and observed[obj] < nobs and observed[obj] <= minobs and blockAvailable:
 #                       print(obj, Time(mjd+(hour/24), format='mjd', scale='utc').isot, pe[obj].phase(Time(mjd+(hour/24), format='mjd', scale='utc')), pe[obj].phase(Time(mjd+((hour+blocksize)/24.), format='mjd', scale='utc')))
                        scheduled_times.append(Time(mjd+(hour/24), format='mjd', scale='utc'))
                        scheduled_objects.append(obj)
                        observed[obj] += 1
-                       #minobs = min(observed.values())
                        blockAvailable = False
                        skipsource = obj
+                  n += 1
+                  if n == len(order) and blockAvailable:
+                       print(f"Warning: could not find a useable source for {hour}")
+
 
         if len(scheduled_times) == nobs*len(T0s):
             print(f"{t.isot} is an ideal day, with a schedule of {len(scheduled_times)} {blocksize*60}-minute observing blocks that starts at {start}h, ends at {stop}h, and iterates through the sources in the following order:")
